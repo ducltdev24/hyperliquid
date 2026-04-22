@@ -1,136 +1,93 @@
 # hyperliquid
 
-Project Python nho de crawl gia BTC tu Hyperliquid qua API public.
+Dashboard giao dich phong cach Hyperliquid bang Python + Flask.
 
-## 1) Cai dat
+## Tinh nang chinh
+
+- Giao dien trading style: watchlist, chart nen, order book, recent trades
+- Ho tro cac cap coin da whitelist:
+  - `ETHUSD`, `SOLUSDT`, `XRPUSD`, `HYPEUSDT`, `SUIUSD`, `TAOUSD`, `ZROUSDT`, `MONUSDT`
+- Du lieu market theo tung coin:
+  - gia hien tai, mark price, funding, open interest, 24h volume
+- Luu lich su gia vao database (MySQL/SQLite)
+- Export lich su ra CSV theo coin
+- DB Web UI: Adminer + phpMyAdmin
+
+## Cau truc chinh
+
+- `src/web_app.py`: Flask app + API
+- `src/hyperliquid_btc_crawler.py`: ham fetch du lieu tu Hyperliquid API
+- `src/storage.py`: luu/lay lich su gia
+- `src/templates/index.html`: giao dien web
+- `docker/docker-compose.yml`: web + mysql + adminer + phpmyadmin
+
+## Chay nhanh bang Docker Compose (khuyen dung)
+
+Tu thu muc `docker`:
+
+```bash
+docker compose up -d --build
+```
+
+Mo giao dien:
+
+- Web app: http://localhost:8000
+- Adminer: http://localhost:8080
+- phpMyAdmin: http://localhost:8081
+
+Xem log:
+
+```bash
+docker compose logs -f btc-crawler
+```
+
+Dung he thong:
+
+```bash
+docker compose down
+```
+
+## MySQL mac dinh
+
+Thong tin ket noi:
+
+- Host: `mysql` (trong compose network) hoac `127.0.0.1` (tu may local)
+- Port: `3306`
+- Database: `hyperliquid`
+- Username: `hyperliquid`
+- Password: `hyperliquid`
+
+Env app dang su dung trong compose:
+
+- `DATABASE_URL=mysql+pymysql://hyperliquid:hyperliquid@mysql:3306/hyperliquid`
+
+## API chinh
+
+- Lay du lieu market theo coin:
+  - `GET /api/price?symbol=ETH`
+- Lay lich su theo coin:
+  - `GET /api/history?symbol=ETH`
+- Export CSV theo coin:
+  - `GET /api/history.csv?symbol=ETH&limit=1000`
+
+Ghi chu:
+
+- `symbol` dung ma coin goc: `ETH`, `SOL`, `XRP`, `HYPE`, `SUI`, `TAO`, `ZRO`, `MON`
+
+## Chay local khong Docker
 
 ```bash
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-## 2) Chay 1 lan
-
-```bash
-python src/hyperliquid_btc_crawler.py
-```
-
-Vi du output:
-
-```text
-[2026-04-23T07:00:00.000000+00:00] BTC = 68234.5
-```
-
-## 3) Poll lien tuc moi 2 giay
-
-```bash
-python src/hyperliquid_btc_crawler.py --interval 2
-```
-
-## 4) Output JSON (de day vao log pipeline)
-
-```bash
-python src/hyperliquid_btc_crawler.py --interval 2 --json
-```
-
-## 5) Giao dien web bang Python (Flask)
-
-Chay local:
-
-```bash
 python src/web_app.py
 ```
 
-Mo tren trinh duyet:
+Mo: http://localhost:8000
 
-- http://localhost:8000
-
-Trang web se tu dong refresh gia BTC, top 10 coin, va luu lich su BTC vao database.
-
-## 6) Dung Docker
-
-Build image:
-
-```bash
-docker build --ignorefile docker/.dockerignore -f docker/Dockerfile -t hyperliquid-btc-crawler .
-```
-
-Chay web:
-
-```bash
-docker run --rm -p 8000:8000 hyperliquid-btc-crawler
-```
-
-Mo trinh duyet:
-
-- http://localhost:8000
-
-Neu muon chay crawler CLI trong container:
-
-```bash
-docker run --rm hyperliquid-btc-crawler python src/hyperliquid_btc_crawler.py --interval 2
-```
-
-Output JSON:
-
-```bash
-docker run --rm hyperliquid-btc-crawler python src/hyperliquid_btc_crawler.py --interval 2 --json
-```
-
-## 7) Dung Docker Compose (web)
-
-Start web o background:
-
-```bash
-docker compose -f docker/docker-compose.yml up -d --build
-```
-
-Mo trinh duyet:
-
-- http://localhost:8000
-
-Xem log:
-
-```bash
-docker compose -f docker/docker-compose.yml logs -f
-```
-
-Dung va xoa container:
-
-```bash
-docker compose -f docker/docker-compose.yml down
-```
-
-## 8) Database lich su gia (MySQL)
-
-- Docker Compose da them service `mysql` de dung cho du lieu lon hon.
-- Ket noi DB trong app qua env:
-  - `DATABASE_URL=mysql+pymysql://hyperliquid:hyperliquid@mysql:3306/hyperliquid`
-- MySQL data duoc luu persistent bang volume `mysql_data`.
-- API lich su:
-  - http://localhost:8000/api/history
-  - http://localhost:8000/api/history.csv
-- DB Web UI:
-  - Adminer: http://localhost:8080
-  - phpMyAdmin: http://localhost:8081
-
-Thong tin dang nhap MySQL:
-
-- Server/Host: `mysql` (neu dang nhap trong container UI) hoac `127.0.0.1` (neu dung tool tren may)
-- Username: `hyperliquid`
-- Password: `hyperliquid`
-- Database: `hyperliquid`
-
-Neu ban muon chay local khong MySQL, app van ho tro SQLite voi:
+Neu muon dung SQLite local:
 
 ```bash
 set DATABASE_URL=sqlite:///D:/Project/hyperliquid/data/prices.db
 python src/web_app.py
 ```
-
-## 9) Xuat file CSV
-
-- Tai CSV truc tiep tren web bang nut `Export CSV`.
-- Hoac goi endpoint:
-  - http://localhost:8000/api/history.csv?limit=1000
