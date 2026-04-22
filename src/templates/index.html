@@ -22,6 +22,37 @@
         color: var(--text);
         font-family: Inter, Segoe UI, Arial, sans-serif;
       }
+      .shell {
+        display: grid;
+        grid-template-columns: 180px 1fr;
+        min-height: 100vh;
+      }
+      .sidebar {
+        border-right: 1px solid var(--line);
+        background: #060f1b;
+        padding: 8px 0;
+      }
+      .sidebar-title {
+        color: var(--muted);
+        font-size: 11px;
+        padding: 8px 12px;
+        text-transform: uppercase;
+      }
+      .pair-item {
+        display: block;
+        color: var(--text);
+        text-decoration: none;
+        padding: 10px 12px;
+        border-top: 1px solid #102238;
+        border-bottom: 1px solid #081729;
+        font-size: 13px;
+      }
+      .pair-item:hover { background: #0b1a2b; }
+      .pair-item.active {
+        background: #162437;
+        color: #ffffff;
+        font-weight: 700;
+      }
       .app { padding: 10px; }
       .topbar {
         display: grid;
@@ -57,7 +88,7 @@
         border-bottom: 1px solid var(--line);
       }
       .chart-wrap { padding: 12px; }
-      canvas {
+      #price-chart {
         width: 100%;
         height: 280px;
         background: linear-gradient(180deg, #0a1829 0%, #0a1524 100%);
@@ -120,6 +151,8 @@
         font-size: 12px;
       }
       @media (max-width: 1200px) {
+        .shell { grid-template-columns: 1fr; }
+        .sidebar { display: none; }
         .layout { grid-template-columns: 1fr; }
         .topbar { grid-template-columns: 1fr 1fr; }
         .bottom { grid-template-columns: 1fr; }
@@ -127,16 +160,30 @@
     </style>
   </head>
   <body>
-    <div class="app">
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="sidebar-title">Pairs</div>
+        <div id="pair-list">
+          {% if payload and payload.coin_pairs %}
+          {% for pair in payload.coin_pairs %}
+          <a
+            class="pair-item {{ 'active' if payload.selected_symbol == pair.symbol else '' }}"
+            href="/?symbol={{ pair.symbol }}"
+          >{{ pair.label }}</a>
+          {% endfor %}
+          {% endif %}
+        </div>
+      </aside>
+      <div class="app">
       <div class="topbar">
         <div class="pair">
-          <div class="symbol" id="pair-symbol">{{ payload.market_symbol if payload else "BTC-USD" }}</div>
-          <div class="price" id="price">${{ payload.btc_price if payload else "--" }}</div>
+          <div class="symbol" id="pair-symbol">{{ payload.market_symbol if payload else "BTCUSD" }}</div>
+          <div class="price" id="price">${{ payload.selected_price if payload else "--" }}</div>
         </div>
         <div class="stat"><div class="label">24h Volume</div><div class="value" id="volume">$53.1M</div></div>
         <div class="stat"><div class="label">Open Interest</div><div class="value" id="oi">$2.4B</div></div>
         <div class="stat"><div class="label">Funding</div><div class="value" id="funding" class="buy">0.0012%</div></div>
-        <div class="stat"><div class="label">Mark</div><div class="value" id="mark">${{ payload.btc_price if payload else "--" }}</div></div>
+        <div class="stat"><div class="label">Mark</div><div class="value" id="mark">${{ payload.selected_price if payload else "--" }}</div></div>
         <div class="stat"><div class="label">Updated</div><div class="value" id="time">{{ payload.timestamp_utc if payload else "--" }}</div></div>
       </div>
 
@@ -144,8 +191,8 @@
 
       <div class="layout">
         <div class="panel">
-          <div class="panel-title">Chart</div>
-          <div class="chart-wrap"><canvas id="price-chart" width="800" height="280"></canvas></div>
+          <div class="panel-title">Chart (Candlestick)</div>
+          <div class="chart-wrap"><div id="price-chart"></div></div>
         </div>
 
         <div class="panel">
@@ -175,8 +222,8 @@
           <div class="panel-title">Trade Panel</div>
           <div class="order-form">
             <div class="tabs"><div class="tab active">Buy / Long</div><div class="tab">Sell / Short</div></div>
-            <input type="text" value="{{ payload.btc_price if payload else '' }}" readonly />
-            <input type="text" placeholder="Size (BTC)" />
+            <input id="trade-price" type="text" value="{{ payload.selected_price if payload else '' }}" readonly />
+            <input id="trade-size" type="text" placeholder="Size (coin)" />
             <button class="btn" type="button">Enable Trading</button>
           </div>
           <div class="panel-title">Recent Trades</div>
@@ -201,20 +248,20 @@
             <tbody id="top10-body">
               {% if payload and payload.top_10_coins %}
               {% for coin in payload.top_10_coins %}
-              <tr><td>{{ loop.index }}</td><td>{{ coin.symbol }}</td><td>{{ coin.price }}</td></tr>
+              <tr><td>{{ loop.index }}</td><td>{{ coin.label }}</td><td>{{ coin.price }}</td></tr>
               {% endfor %}
               {% endif %}
             </tbody>
           </table>
         </div>
         <div class="panel">
-          <div class="panel-title">BTC History</div>
-          <a class="btn-export" href="/api/history.csv?limit=1000">Export CSV</a>
+          <div class="panel-title"><span id="history-title">{{ payload.selected_label if payload else "ETHUSD" }}</span> History</div>
+          <a id="export-csv" class="btn-export" href="/api/history.csv?limit=1000&symbol={{ payload.selected_symbol if payload else 'ETH' }}">Export CSV</a>
           <table>
             <thead><tr><th>#</th><th>Price</th><th>Time (UTC)</th></tr></thead>
             <tbody id="history-body">
-              {% if payload and payload.btc_history %}
-              {% for item in payload.btc_history %}
+              {% if payload and payload.price_history %}
+              {% for item in payload.price_history %}
               <tr><td>{{ loop.index }}</td><td>{{ item.price }}</td><td>{{ item.created_at_utc }}</td></tr>
               {% endfor %}
               {% endif %}
@@ -222,42 +269,132 @@
           </table>
         </div>
       </div>
+      </div>
     </div>
 
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <script>
-      function drawChart(history) {
-        const canvas = document.getElementById("price-chart");
-        const ctx = canvas.getContext("2d");
-        const width = canvas.width;
-        const height = canvas.height;
+      let currentSymbol = "{{ payload.selected_symbol if payload else 'ETH' }}";
+      let chart;
+      let candleSeries;
+      const PRICE_DECIMALS = {
+        ETH: 2,
+        SOL: 3,
+        XRP: 5,
+        HYPE: 4,
+        SUI: 4,
+        TAO: 2,
+        ZRO: 4,
+        MON: 4,
+      };
 
-        ctx.clearRect(0, 0, width, height);
-        ctx.strokeStyle = "#11314c";
-        ctx.lineWidth = 1;
-        for (let i = 0; i <= 6; i += 1) {
-          const y = (height / 6) * i;
-          ctx.beginPath();
-          ctx.moveTo(0, y);
-          ctx.lineTo(width, y);
-          ctx.stroke();
+      function getPriceDecimals(symbol) {
+        return PRICE_DECIMALS[symbol] ?? 4;
+      }
+
+      function formatPrice(value, symbol = currentSymbol) {
+        const num = Number(value);
+        if (!Number.isFinite(num)) return "--";
+        return num.toFixed(getPriceDecimals(symbol));
+      }
+
+      function formatTimestamp(value) {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return value || "--";
+        return date.toLocaleString();
+      }
+
+      function formatCompact(value) {
+        const num = Number(value);
+        if (!Number.isFinite(num)) return "--";
+        const abs = Math.abs(num);
+        if (abs >= 1e9) return `${(num / 1e9).toFixed(2)}B`;
+        if (abs >= 1e6) return `${(num / 1e6).toFixed(2)}M`;
+        if (abs >= 1e3) return `${(num / 1e3).toFixed(2)}K`;
+        return num.toFixed(2);
+      }
+
+      function ensureChart() {
+        if (chart) return;
+        const container = document.getElementById("price-chart");
+        chart = LightweightCharts.createChart(container, {
+          height: 280,
+          layout: {
+            background: { color: "#0a1524" },
+            textColor: "#8ea6c2",
+          },
+          grid: {
+            vertLines: { color: "#132a43" },
+            horzLines: { color: "#132a43" },
+          },
+          rightPriceScale: { borderColor: "#1b2f49" },
+          timeScale: { borderColor: "#1b2f49", timeVisible: true, secondsVisible: false },
+          crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+        });
+        const candleOptions = {
+          upColor: "#21d0a5",
+          downColor: "#ff6d7f",
+          borderVisible: false,
+          wickUpColor: "#21d0a5",
+          wickDownColor: "#ff6d7f",
+        };
+        // Compatible with lightweight-charts v4 and v5 APIs.
+        if (typeof chart.addCandlestickSeries === "function") {
+          candleSeries = chart.addCandlestickSeries(candleOptions);
+        } else {
+          candleSeries = chart.addSeries(LightweightCharts.CandlestickSeries, candleOptions);
         }
 
-        if (!history || history.length < 2) return;
-        const points = [...history].reverse().map((x) => Number(x.price));
-        const min = Math.min(...points);
-        const max = Math.max(...points);
-        const range = max - min || 1;
-
-        ctx.beginPath();
-        ctx.strokeStyle = "#2bd4ff";
-        ctx.lineWidth = 2;
-        points.forEach((p, i) => {
-          const x = (width / (points.length - 1)) * i;
-          const y = height - ((p - min) / range) * (height - 20) - 10;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
+        window.addEventListener("resize", () => {
+          chart.applyOptions({ width: container.clientWidth });
         });
-        ctx.stroke();
+        chart.applyOptions({ width: container.clientWidth });
+      }
+
+      function toCandleData(history) {
+        if (!history || history.length === 0) return [];
+        const points = [...history].reverse();
+        const candles = [];
+        const groupSize = 4;
+
+        for (let i = 0; i < points.length; i += groupSize) {
+          const bucket = points.slice(i, i + groupSize);
+          if (bucket.length === 0) continue;
+          const prices = bucket.map((x) => Number(x.price));
+          const open = prices[0];
+          const close = prices[prices.length - 1];
+          const high = Math.max(...prices);
+          const low = Math.min(...prices);
+          const date = new Date(bucket[bucket.length - 1].created_at_utc);
+          candles.push({
+            time: Math.floor(date.getTime() / 1000),
+            open,
+            high,
+            low,
+            close,
+          });
+        }
+
+        return candles;
+      }
+
+      function drawChart(history) {
+        ensureChart();
+        let candles = toCandleData(history);
+        if (!candles.length && history && history.length) {
+          const last = Number(history[0].price);
+          candles = [
+            {
+              time: Math.floor(Date.now() / 1000),
+              open: last,
+              high: last,
+              low: last,
+              close: last,
+            },
+          ];
+        }
+        candleSeries.setData(candles);
+        chart.timeScale().fitContent();
       }
 
       function rowsHtml(items, mapFn, emptyColspan = 3, emptyText = "No data") {
@@ -266,40 +403,55 @@
       }
 
       function renderAll(data) {
-        document.getElementById("price").textContent = `$${data.btc_price}`;
-        document.getElementById("mark").textContent = `$${data.btc_price}`;
-        document.getElementById("time").textContent = data.timestamp_utc;
+        currentSymbol = data.selected_symbol;
+        document.getElementById("price").textContent = `$${formatPrice(data.selected_price, data.selected_symbol)}`;
+        document.getElementById("mark").textContent = `$${formatPrice(data.mark_price, data.selected_symbol)}`;
+        document.getElementById("volume").textContent = `$${formatCompact(data.day_volume)}`;
+        document.getElementById("oi").textContent = `$${formatCompact(data.open_interest)}`;
+        document.getElementById("funding").textContent = `${(Number(data.funding_rate) * 100).toFixed(4)}%`;
+        document.getElementById("trade-price").value = formatPrice(data.selected_price, data.selected_symbol);
+        document.getElementById("time").textContent = formatTimestamp(data.timestamp_utc);
         document.getElementById("pair-symbol").textContent = data.market_symbol;
+        document.getElementById("history-title").textContent = data.selected_label;
+        document.getElementById("export-csv").setAttribute("href", `/api/history.csv?limit=1000&symbol=${data.selected_symbol}`);
+
+        document.getElementById("pair-list").innerHTML = rowsHtml(
+          data.coin_pairs,
+          (pair) =>
+            `<a class="pair-item ${pair.symbol === data.selected_symbol ? "active" : ""}" href="/?symbol=${pair.symbol}">${pair.label}</a>`,
+          1,
+          ""
+        );
 
         document.getElementById("top10-body").innerHTML = rowsHtml(
           data.top_10_coins,
-          (coin, idx) => `<tr><td>${idx + 1}</td><td>${coin.symbol}</td><td>${coin.price}</td></tr>`
+          (coin, idx) => `<tr><td>${idx + 1}</td><td>${coin.label}</td><td>${formatPrice(coin.price, coin.symbol)}</td></tr>`
         );
         document.getElementById("history-body").innerHTML = rowsHtml(
-          data.btc_history,
-          (item, idx) => `<tr><td>${idx + 1}</td><td>${item.price}</td><td>${item.created_at_utc}</td></tr>`
+          data.price_history,
+          (item, idx) => `<tr><td>${idx + 1}</td><td>${formatPrice(item.price, data.selected_symbol)}</td><td>${formatTimestamp(item.created_at_utc)}</td></tr>`
         );
         document.getElementById("asks-body").innerHTML = rowsHtml(
           data.order_book.asks,
-          (r) => `<tr><td class="sell">${r.price}</td><td>${r.size}</td><td>${r.total}</td></tr>`
+          (r) => `<tr><td class="sell">${formatPrice(r.price, data.selected_symbol)}</td><td>${Number(r.size).toFixed(4)}</td><td>${Number(r.total).toFixed(2)}</td></tr>`
         );
         document.getElementById("bids-body").innerHTML = rowsHtml(
           data.order_book.bids,
-          (r) => `<tr><td class="buy">${r.price}</td><td>${r.size}</td><td>${r.total}</td></tr>`
+          (r) => `<tr><td class="buy">${formatPrice(r.price, data.selected_symbol)}</td><td>${Number(r.size).toFixed(4)}</td><td>${Number(r.total).toFixed(2)}</td></tr>`
         );
         document.getElementById("trades-body").innerHTML = rowsHtml(
           data.recent_trades,
           (t) =>
-            `<tr><td>${t.time}</td><td>${t.price}</td><td>${t.size}</td><td class="${t.side === "Buy" ? "buy" : "sell"}">${t.side}</td></tr>`,
+            `<tr><td>${t.time}</td><td>${formatPrice(t.price, data.selected_symbol)}</td><td>${Number(t.size).toFixed(4)}</td><td class="${t.side === "Buy" ? "buy" : "sell"}">${t.side}</td></tr>`,
           4
         );
 
-        drawChart(data.btc_history);
+        drawChart(data.price_history);
       }
 
       async function refreshPrice() {
         try {
-          const response = await fetch("/api/price");
+          const response = await fetch(`/api/price?symbol=${currentSymbol}`);
           const data = await response.json();
           if (!response.ok) throw new Error(data.error || "Cannot fetch price");
           renderAll(data);
