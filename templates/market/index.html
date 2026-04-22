@@ -4,43 +4,298 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Hyperliquid Style Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
     <style>
-      :root { --bg:#081321; --card:#0e1c2f; --line:#1b2f49; --text:#d4deeb; --muted:#7f95af; --green:#21d0a5; --red:#ff6d7f; --cyan:#30d5ff; }
-      * { box-sizing:border-box; }
-      body { margin:0; background:var(--bg); color:var(--text); font-family:Inter,Segoe UI,Arial,sans-serif; }
-      .shell { display:grid; grid-template-columns:180px 1fr; min-height:100vh; }
-      .sidebar { border-right:1px solid var(--line); background:#060f1b; padding:8px 0; }
-      .sidebar-title { color:var(--muted); font-size:11px; padding:8px 12px; text-transform:uppercase; }
-      .pair-item { display:block; color:var(--text); text-decoration:none; padding:10px 12px; border-top:1px solid #102238; border-bottom:1px solid #081729; font-size:13px; }
-      .pair-item:hover { background:#0b1a2b; }
-      .pair-item.active { background:#162437; color:#fff; font-weight:700; }
-      .app { padding:10px; }
-      .topbar { display:grid; grid-template-columns:1.2fr repeat(5,1fr); gap:8px; margin-bottom:10px; }
-      .stat,.pair { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:10px; }
-      .pair .symbol { font-size:18px; font-weight:700; }
-      .pair .price { color:var(--cyan); font-size:22px; font-weight:700; margin-top:4px; }
-      .label { color:var(--muted); font-size:12px; }
-      .value { margin-top:4px; font-size:14px; font-weight:600; }
-      .layout { display:grid; grid-template-columns:1.8fr 1fr 0.95fr; gap:10px; }
-      .panel { background:var(--card); border:1px solid var(--line); border-radius:8px; overflow:hidden; }
-      .panel-title { padding:10px 12px; font-size:13px; color:var(--muted); border-bottom:1px solid var(--line); }
-      .chart-wrap { padding:12px; }
-      #price-chart { width:100%; height:280px; background:linear-gradient(180deg,#0a1829 0%,#0a1524 100%); border:1px solid #173150; border-radius:6px; }
-      table { width:100%; border-collapse:collapse; }
-      th,td { border-bottom:1px solid #16304d; padding:8px 10px; font-size:12px; }
-      th { color:var(--muted); text-align:left; }
-      .buy { color:var(--green); }
-      .sell { color:var(--red); }
-      .order-form { padding:12px; display:grid; gap:8px; }
-      .tabs { display:flex; gap:6px; }
-      .tab { flex:1; text-align:center; padding:8px 0; border-radius:6px; border:1px solid #1b3c57; font-size:12px; }
-      .tab.active { background:#123f3f; color:#86ffdc; border-color:#246c6b; }
-      input { width:100%; background:#0b1728; border:1px solid #23415f; border-radius:6px; color:var(--text); padding:10px; }
-      .btn { padding:10px; border-radius:6px; border:none; background:var(--green); color:#042017; font-weight:700; cursor:pointer; }
-      .btn-export { display:inline-block; margin:10px 12px; color:#8ceaff; text-decoration:none; font-size:12px; }
-      .bottom { margin-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-      .error { color:var(--red); padding:8px 12px; font-size:12px; }
-      @media (max-width:1200px) { .shell{grid-template-columns:1fr;} .sidebar{display:none;} .layout{grid-template-columns:1fr;} .topbar{grid-template-columns:1fr 1fr;} .bottom{grid-template-columns:1fr;} }
+      :root {
+        --bg-0: #06101d;
+        --bg-1: #0c2032;
+        --panel: rgba(10, 29, 48, 0.65);
+        --panel-strong: rgba(8, 24, 40, 0.85);
+        --line: rgba(99, 168, 222, 0.2);
+        --text: #d8e8f6;
+        --muted: #88a7c2;
+        --cyan: #54d7ff;
+        --mint: #5df2be;
+        --orange: #ff9a64;
+        --red: #ff6f83;
+        --shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: var(--text);
+        font-family: "Space Grotesk", "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at 8% -10%, rgba(84, 215, 255, 0.18), transparent 28%),
+          radial-gradient(circle at 85% 10%, rgba(255, 154, 100, 0.2), transparent 30%),
+          linear-gradient(135deg, var(--bg-0) 0%, var(--bg-1) 100%);
+        min-height: 100vh;
+      }
+
+      .shell {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        min-height: 100vh;
+      }
+
+      .sidebar {
+        background: linear-gradient(180deg, rgba(7, 20, 34, 0.96) 0%, rgba(6, 16, 29, 0.96) 100%);
+        border-right: 1px solid var(--line);
+        padding: 18px 12px;
+        backdrop-filter: blur(8px);
+      }
+
+      .sidebar-title {
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-size: 10px;
+        color: var(--muted);
+        margin: 4px 10px 12px;
+      }
+
+      .pair-item {
+        display: block;
+        text-decoration: none;
+        color: var(--text);
+        padding: 11px 12px;
+        margin-bottom: 6px;
+        border: 1px solid transparent;
+        border-radius: 10px;
+        background: rgba(11, 32, 51, 0.45);
+        font-size: 13px;
+        transition: all 0.18s ease;
+      }
+
+      .pair-item:hover {
+        border-color: rgba(84, 215, 255, 0.35);
+        transform: translateX(2px);
+      }
+
+      .pair-item.active {
+        background: linear-gradient(90deg, rgba(84, 215, 255, 0.22), rgba(84, 215, 255, 0.08));
+        border-color: rgba(84, 215, 255, 0.45);
+        color: #ffffff;
+        font-weight: 700;
+      }
+
+      .app {
+        padding: 16px;
+      }
+
+      .topbar {
+        display: grid;
+        grid-template-columns: 1.25fr repeat(5, 1fr);
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .pair,
+      .stat,
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(10px);
+      }
+
+      .pair,
+      .stat {
+        padding: 11px;
+      }
+
+      .pair .symbol {
+        font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+        font-size: 19px;
+        font-weight: 700;
+      }
+
+      .pair .price {
+        margin-top: 4px;
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--cyan);
+      }
+
+      .label {
+        color: var(--muted);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .value {
+        margin-top: 5px;
+        font-size: 15px;
+        font-weight: 600;
+      }
+
+      .error {
+        color: var(--red);
+        font-size: 12px;
+        margin-bottom: 10px;
+        padding: 0 2px;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 1.8fr 1fr 0.95fr;
+        gap: 10px;
+      }
+
+      .panel {
+        overflow: hidden;
+      }
+
+      .panel-title {
+        padding: 11px 13px;
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .chart-wrap {
+        padding: 13px;
+      }
+
+      #price-chart {
+        width: 100%;
+        height: 300px;
+        border-radius: 11px;
+        border: 1px solid rgba(84, 215, 255, 0.22);
+        background:
+          radial-gradient(circle at top right, rgba(84, 215, 255, 0.09), transparent 45%),
+          linear-gradient(180deg, rgba(8, 24, 40, 0.95) 0%, rgba(8, 20, 34, 0.95) 100%);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid rgba(99, 168, 222, 0.14);
+        padding: 8px 10px;
+        font-size: 12px;
+      }
+
+      th {
+        color: var(--muted);
+        text-align: left;
+        font-weight: 500;
+      }
+
+      .buy {
+        color: var(--mint);
+      }
+
+      .sell {
+        color: var(--orange);
+      }
+
+      .order-form {
+        display: grid;
+        gap: 8px;
+        padding: 12px;
+      }
+
+      .tabs {
+        display: flex;
+        gap: 6px;
+      }
+
+      .tab {
+        flex: 1;
+        text-align: center;
+        padding: 8px 0;
+        border-radius: 10px;
+        border: 1px solid rgba(84, 215, 255, 0.22);
+        background: rgba(9, 30, 49, 0.65);
+        font-size: 12px;
+      }
+
+      .tab.active {
+        border-color: rgba(93, 242, 190, 0.55);
+        color: #abffe2;
+        background: rgba(11, 52, 49, 0.55);
+      }
+
+      input {
+        width: 100%;
+        border-radius: 10px;
+        border: 1px solid rgba(99, 168, 222, 0.25);
+        background: rgba(7, 27, 44, 0.82);
+        color: var(--text);
+        padding: 10px;
+        font-family: inherit;
+      }
+
+      .btn {
+        border: none;
+        border-radius: 10px;
+        padding: 10px;
+        cursor: pointer;
+        font-weight: 700;
+        color: #052017;
+        background: linear-gradient(90deg, var(--mint), #7ff7cf);
+      }
+
+      .btn-export {
+        display: inline-block;
+        margin: 10px 12px 6px;
+        text-decoration: none;
+        color: #9be7ff;
+        font-size: 12px;
+      }
+
+      .bottom {
+        margin-top: 10px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      @media (max-width: 1280px) {
+        .shell {
+          grid-template-columns: 1fr;
+        }
+        .sidebar {
+          display: none;
+        }
+        .topbar {
+          grid-template-columns: repeat(3, 1fr);
+        }
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 760px) {
+        .app {
+          padding: 10px;
+        }
+        .topbar {
+          grid-template-columns: 1fr 1fr;
+        }
+        .pair {
+          grid-column: 1 / -1;
+        }
+        .bottom {
+          grid-template-columns: 1fr;
+        }
+      }
     </style>
   </head>
   <body>
@@ -57,7 +312,10 @@
       </aside>
       <div class="app">
         <div class="topbar">
-          <div class="pair"><div class="symbol" id="pair-symbol">{% if payload %}{{ payload.market_symbol }}{% else %}ETHUSD{% endif %}</div><div class="price" id="price">${% if payload %}{{ payload.selected_price }}{% else %}--{% endif %}</div></div>
+          <div class="pair">
+            <div class="symbol" id="pair-symbol">{% if payload %}{{ payload.market_symbol }}{% else %}ETHUSD{% endif %}</div>
+            <div class="price" id="price">${% if payload %}{{ payload.selected_price }}{% else %}--{% endif %}</div>
+          </div>
           <div class="stat"><div class="label">24h Volume</div><div class="value" id="volume">$53.1M</div></div>
           <div class="stat"><div class="label">Open Interest</div><div class="value" id="oi">$2.4B</div></div>
           <div class="stat"><div class="label">Funding</div><div class="value" id="funding">0.0012%</div></div>
@@ -100,8 +358,8 @@
       function ensureChart() {
         if (chart) return;
         const container = document.getElementById("price-chart");
-        chart = LightweightCharts.createChart(container, { height: 280, layout: { background: { color: "#0a1524" }, textColor: "#8ea6c2" }, grid: { vertLines: { color: "#132a43" }, horzLines: { color: "#132a43" } }, rightPriceScale: { borderColor: "#1b2f49" }, timeScale: { borderColor: "#1b2f49", timeVisible: true, secondsVisible: false } });
-        const opts = { upColor: "#21d0a5", downColor: "#ff6d7f", borderVisible: false, wickUpColor: "#21d0a5", wickDownColor: "#ff6d7f" };
+        chart = LightweightCharts.createChart(container, { height: 300, layout: { background: { color: "#0b2238" }, textColor: "#8bb0cd" }, grid: { vertLines: { color: "#1a3855" }, horzLines: { color: "#1a3855" } }, rightPriceScale: { borderColor: "#22506f" }, timeScale: { borderColor: "#22506f", timeVisible: true, secondsVisible: false } });
+        const opts = { upColor: "#5df2be", downColor: "#ff9a64", borderVisible: false, wickUpColor: "#5df2be", wickDownColor: "#ff9a64" };
         candleSeries = typeof chart.addCandlestickSeries === "function" ? chart.addCandlestickSeries(opts) : chart.addSeries(LightweightCharts.CandlestickSeries, opts);
         window.addEventListener("resize", () => chart.applyOptions({ width: container.clientWidth }));
         chart.applyOptions({ width: container.clientWidth });
