@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hyperliquid Style Dashboard</title>
+    <style>
+      :root {
+        --bg: #081321;
+        --card: #0e1c2f;
+        --line: #1b2f49;
+        --text: #d4deeb;
+        --muted: #7f95af;
+        --green: #21d0a5;
+        --red: #ff6d7f;
+        --cyan: #30d5ff;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Inter, Segoe UI, Arial, sans-serif;
+      }
+      .app { padding: 10px; }
+      .topbar {
+        display: grid;
+        grid-template-columns: 1.2fr repeat(5, 1fr);
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .stat, .pair {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px;
+      }
+      .pair .symbol { font-size: 18px; font-weight: 700; }
+      .pair .price { color: var(--cyan); font-size: 22px; font-weight: 700; margin-top: 4px; }
+      .label { color: var(--muted); font-size: 12px; }
+      .value { margin-top: 4px; font-size: 14px; font-weight: 600; }
+      .layout {
+        display: grid;
+        grid-template-columns: 1.8fr 1fr 0.95fr;
+        gap: 10px;
+      }
+      .panel {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .panel-title {
+        padding: 10px 12px;
+        font-size: 13px;
+        color: var(--muted);
+        border-bottom: 1px solid var(--line);
+      }
+      .chart-wrap { padding: 12px; }
+      canvas {
+        width: 100%;
+        height: 280px;
+        background: linear-gradient(180deg, #0a1829 0%, #0a1524 100%);
+        border: 1px solid #173150;
+        border-radius: 6px;
+      }
+      table { width: 100%; border-collapse: collapse; }
+      th, td {
+        border-bottom: 1px solid #16304d;
+        padding: 8px 10px;
+        font-size: 12px;
+      }
+      th { color: var(--muted); text-align: left; }
+      .buy { color: var(--green); }
+      .sell { color: var(--red); }
+      .order-form { padding: 12px; display: grid; gap: 8px; }
+      .tabs { display: flex; gap: 6px; }
+      .tab {
+        flex: 1;
+        text-align: center;
+        padding: 8px 0;
+        border-radius: 6px;
+        border: 1px solid #1b3c57;
+        font-size: 12px;
+      }
+      .tab.active { background: #123f3f; color: #86ffdc; border-color: #246c6b; }
+      input {
+        width: 100%;
+        background: #0b1728;
+        border: 1px solid #23415f;
+        border-radius: 6px;
+        color: var(--text);
+        padding: 10px;
+      }
+      .btn {
+        padding: 10px;
+        border-radius: 6px;
+        border: none;
+        background: var(--green);
+        color: #042017;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .btn-export {
+        display: inline-block;
+        margin: 10px 12px;
+        color: #8ceaff;
+        text-decoration: none;
+        font-size: 12px;
+      }
+      .bottom {
+        margin-top: 10px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .error {
+        color: var(--red);
+        padding: 8px 12px;
+        font-size: 12px;
+      }
+      @media (max-width: 1200px) {
+        .layout { grid-template-columns: 1fr; }
+        .topbar { grid-template-columns: 1fr 1fr; }
+        .bottom { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="topbar">
+        <div class="pair">
+          <div class="symbol" id="pair-symbol">{{ payload.market_symbol if payload else "BTC-USD" }}</div>
+          <div class="price" id="price">${{ payload.btc_price if payload else "--" }}</div>
+        </div>
+        <div class="stat"><div class="label">24h Volume</div><div class="value" id="volume">$53.1M</div></div>
+        <div class="stat"><div class="label">Open Interest</div><div class="value" id="oi">$2.4B</div></div>
+        <div class="stat"><div class="label">Funding</div><div class="value" id="funding" class="buy">0.0012%</div></div>
+        <div class="stat"><div class="label">Mark</div><div class="value" id="mark">${{ payload.btc_price if payload else "--" }}</div></div>
+        <div class="stat"><div class="label">Updated</div><div class="value" id="time">{{ payload.timestamp_utc if payload else "--" }}</div></div>
+      </div>
+
+      {% if error %}<div id="error" class="error">{{ error }}</div>{% else %}<div id="error" class="error" style="display:none"></div>{% endif %}
+
+      <div class="layout">
+        <div class="panel">
+          <div class="panel-title">Chart</div>
+          <div class="chart-wrap"><canvas id="price-chart" width="800" height="280"></canvas></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Order Book</div>
+          <table>
+            <thead><tr><th>Price</th><th>Size</th><th>Total</th></tr></thead>
+            <tbody id="asks-body">
+              {% if payload and payload.order_book and payload.order_book.asks %}
+              {% for row in payload.order_book.asks %}
+              <tr><td class="sell">{{ row.price }}</td><td>{{ row.size }}</td><td>{{ row.total }}</td></tr>
+              {% endfor %}
+              {% endif %}
+            </tbody>
+          </table>
+          <table>
+            <tbody id="bids-body">
+              {% if payload and payload.order_book and payload.order_book.bids %}
+              {% for row in payload.order_book.bids %}
+              <tr><td class="buy">{{ row.price }}</td><td>{{ row.size }}</td><td>{{ row.total }}</td></tr>
+              {% endfor %}
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Trade Panel</div>
+          <div class="order-form">
+            <div class="tabs"><div class="tab active">Buy / Long</div><div class="tab">Sell / Short</div></div>
+            <input type="text" value="{{ payload.btc_price if payload else '' }}" readonly />
+            <input type="text" placeholder="Size (BTC)" />
+            <button class="btn" type="button">Enable Trading</button>
+          </div>
+          <div class="panel-title">Recent Trades</div>
+          <table>
+            <thead><tr><th>Time</th><th>Price</th><th>Size</th><th>Side</th></tr></thead>
+            <tbody id="trades-body">
+              {% if payload and payload.recent_trades %}
+              {% for t in payload.recent_trades %}
+              <tr><td>{{ t.time }}</td><td>{{ t.price }}</td><td>{{ t.size }}</td><td class="{{ 'buy' if t.side == 'Buy' else 'sell' }}">{{ t.side }}</td></tr>
+              {% endfor %}
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="bottom">
+        <div class="panel">
+          <div class="panel-title">Top Coins</div>
+          <table>
+            <thead><tr><th>#</th><th>Coin</th><th>Price</th></tr></thead>
+            <tbody id="top10-body">
+              {% if payload and payload.top_10_coins %}
+              {% for coin in payload.top_10_coins %}
+              <tr><td>{{ loop.index }}</td><td>{{ coin.symbol }}</td><td>{{ coin.price }}</td></tr>
+              {% endfor %}
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <div class="panel-title">BTC History</div>
+          <a class="btn-export" href="/api/history.csv?limit=1000">Export CSV</a>
+          <table>
+            <thead><tr><th>#</th><th>Price</th><th>Time (UTC)</th></tr></thead>
+            <tbody id="history-body">
+              {% if payload and payload.btc_history %}
+              {% for item in payload.btc_history %}
+              <tr><td>{{ loop.index }}</td><td>{{ item.price }}</td><td>{{ item.created_at_utc }}</td></tr>
+              {% endfor %}
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function drawChart(history) {
+        const canvas = document.getElementById("price-chart");
+        const ctx = canvas.getContext("2d");
+        const width = canvas.width;
+        const height = canvas.height;
+
+        ctx.clearRect(0, 0, width, height);
+        ctx.strokeStyle = "#11314c";
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 6; i += 1) {
+          const y = (height / 6) * i;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+          ctx.stroke();
+        }
+
+        if (!history || history.length < 2) return;
+        const points = [...history].reverse().map((x) => Number(x.price));
+        const min = Math.min(...points);
+        const max = Math.max(...points);
+        const range = max - min || 1;
+
+        ctx.beginPath();
+        ctx.strokeStyle = "#2bd4ff";
+        ctx.lineWidth = 2;
+        points.forEach((p, i) => {
+          const x = (width / (points.length - 1)) * i;
+          const y = height - ((p - min) / range) * (height - 20) - 10;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      }
+
+      function rowsHtml(items, mapFn, emptyColspan = 3, emptyText = "No data") {
+        if (!items || items.length === 0) return `<tr><td colspan="${emptyColspan}">${emptyText}</td></tr>`;
+        return items.map(mapFn).join("");
+      }
+
+      function renderAll(data) {
+        document.getElementById("price").textContent = `$${data.btc_price}`;
+        document.getElementById("mark").textContent = `$${data.btc_price}`;
+        document.getElementById("time").textContent = data.timestamp_utc;
+        document.getElementById("pair-symbol").textContent = data.market_symbol;
+
+        document.getElementById("top10-body").innerHTML = rowsHtml(
+          data.top_10_coins,
+          (coin, idx) => `<tr><td>${idx + 1}</td><td>${coin.symbol}</td><td>${coin.price}</td></tr>`
+        );
+        document.getElementById("history-body").innerHTML = rowsHtml(
+          data.btc_history,
+          (item, idx) => `<tr><td>${idx + 1}</td><td>${item.price}</td><td>${item.created_at_utc}</td></tr>`
+        );
+        document.getElementById("asks-body").innerHTML = rowsHtml(
+          data.order_book.asks,
+          (r) => `<tr><td class="sell">${r.price}</td><td>${r.size}</td><td>${r.total}</td></tr>`
+        );
+        document.getElementById("bids-body").innerHTML = rowsHtml(
+          data.order_book.bids,
+          (r) => `<tr><td class="buy">${r.price}</td><td>${r.size}</td><td>${r.total}</td></tr>`
+        );
+        document.getElementById("trades-body").innerHTML = rowsHtml(
+          data.recent_trades,
+          (t) =>
+            `<tr><td>${t.time}</td><td>${t.price}</td><td>${t.size}</td><td class="${t.side === "Buy" ? "buy" : "sell"}">${t.side}</td></tr>`,
+          4
+        );
+
+        drawChart(data.btc_history);
+      }
+
+      async function refreshPrice() {
+        try {
+          const response = await fetch("/api/price");
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "Cannot fetch price");
+          renderAll(data);
+          const errorElem = document.getElementById("error");
+          errorElem.style.display = "none";
+          errorElem.textContent = "";
+        } catch (err) {
+          const errorElem = document.getElementById("error");
+          errorElem.style.display = "block";
+          errorElem.textContent = err.message;
+        }
+      }
+
+      {% if payload %}
+      renderAll({{ payload | tojson }});
+      {% endif %}
+      setInterval(refreshPrice, 2000);
+    </script>
+  </body>
+</html>

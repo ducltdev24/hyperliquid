@@ -1,0 +1,3 @@
+data/prices.db
+__pycache__/
+*.pyc
