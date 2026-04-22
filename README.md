@@ -1,35 +1,34 @@
 # hyperliquid
 
-Dashboard giao dich phong cach Hyperliquid bang Python + Flask.
+Dashboard giao dich phong cach Hyperliquid duoc xay dung lai bang Django, voi cau truc de bao tri.
 
 ## Tinh nang chinh
 
 - Giao dien trading style: watchlist, chart nen, order book, recent trades
-- Ho tro cac cap coin da whitelist:
-  - `ETHUSD`, `SOLUSDT`, `XRPUSD`, `HYPEUSDT`, `SUIUSD`, `TAOUSD`, `ZROUSDT`, `MONUSDT`
-- Du lieu market theo tung coin:
-  - gia hien tai, mark price, funding, open interest, 24h volume
-- Luu lich su gia vao database (MySQL/SQLite)
-- Export lich su ra CSV theo coin
+- Ho tro cap coin whitelist: `ETH`, `SOL`, `XRP`, `HYPE`, `SUI`, `TAO`, `ZRO`, `MON`
+- Chi so theo tung coin: mark, funding, open interest, 24h volume
+- Luu lich su gia vao DB (MySQL/SQLite)
+- Export CSV theo coin
 - DB Web UI: Adminer + phpMyAdmin
 
-## Cau truc chinh
+## Cau truc thu muc (Django)
 
-- `src/web_app.py`: Flask app + API
-- `src/hyperliquid_btc_crawler.py`: ham fetch du lieu tu Hyperliquid API
-- `src/storage.py`: luu/lay lich su gia
-- `src/templates/index.html`: giao dien web
+- `manage.py`: entrypoint Django
+- `hyperdash/`: project settings + urls
+- `market/`: app chinh (models, views, urls, services)
+- `market/services/`: tach logic API Hyperliquid va xu ly market
+- `templates/market/index.html`: giao dien dashboard
 - `docker/docker-compose.yml`: web + mysql + adminer + phpmyadmin
 
-## Chay nhanh bang Docker Compose (khuyen dung)
+## Chay bang Docker Compose
 
-Tu thu muc `docker`:
+Trong thu muc `docker`:
 
 ```bash
 docker compose up -d --build
 ```
 
-Mo giao dien:
+Mo:
 
 - Web app: http://localhost:8000
 - Adminer: http://localhost:8080
@@ -41,38 +40,11 @@ Xem log:
 docker compose logs -f btc-crawler
 ```
 
-Dung he thong:
+Dung:
 
 ```bash
 docker compose down
 ```
-
-## MySQL mac dinh
-
-Thong tin ket noi:
-
-- Host: `mysql` (trong compose network) hoac `127.0.0.1` (tu may local)
-- Port: `3306`
-- Database: `hyperliquid`
-- Username: `hyperliquid`
-- Password: `hyperliquid`
-
-Env app dang su dung trong compose:
-
-- `DATABASE_URL=mysql+pymysql://hyperliquid:hyperliquid@mysql:3306/hyperliquid`
-
-## API chinh
-
-- Lay du lieu market theo coin:
-  - `GET /api/price?symbol=ETH`
-- Lay lich su theo coin:
-  - `GET /api/history?symbol=ETH`
-- Export CSV theo coin:
-  - `GET /api/history.csv?symbol=ETH&limit=1000`
-
-Ghi chu:
-
-- `symbol` dung ma coin goc: `ETH`, `SOL`, `XRP`, `HYPE`, `SUI`, `TAO`, `ZRO`, `MON`
 
 ## Chay local khong Docker
 
@@ -80,7 +52,8 @@ Ghi chu:
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-python src/web_app.py
+python manage.py migrate
+python manage.py runserver
 ```
 
 Mo: http://localhost:8000
@@ -89,5 +62,17 @@ Neu muon dung SQLite local:
 
 ```bash
 set DATABASE_URL=sqlite:///D:/Project/hyperliquid/data/prices.db
-python src/web_app.py
+python manage.py migrate
+python manage.py runserver
 ```
+
+## DATABASE_URL
+
+- MySQL (compose): `mysql+pymysql://hyperliquid:hyperliquid@mysql:3306/hyperliquid`
+- SQLite: `sqlite:///D:/Project/hyperliquid/data/prices.db`
+
+## API
+
+- `GET /api/price?symbol=ETH`
+- `GET /api/history?symbol=ETH`
+- `GET /api/history.csv?symbol=ETH&limit=1000`

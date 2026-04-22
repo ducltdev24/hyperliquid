@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hyperliquid Style Dashboard</title>
+    <style>
+      :root { --bg:#081321; --card:#0e1c2f; --line:#1b2f49; --text:#d4deeb; --muted:#7f95af; --green:#21d0a5; --red:#ff6d7f; --cyan:#30d5ff; }
+      * { box-sizing:border-box; }
+      body { margin:0; background:var(--bg); color:var(--text); font-family:Inter,Segoe UI,Arial,sans-serif; }
+      .shell { display:grid; grid-template-columns:180px 1fr; min-height:100vh; }
+      .sidebar { border-right:1px solid var(--line); background:#060f1b; padding:8px 0; }
+      .sidebar-title { color:var(--muted); font-size:11px; padding:8px 12px; text-transform:uppercase; }
+      .pair-item { display:block; color:var(--text); text-decoration:none; padding:10px 12px; border-top:1px solid #102238; border-bottom:1px solid #081729; font-size:13px; }
+      .pair-item:hover { background:#0b1a2b; }
+      .pair-item.active { background:#162437; color:#fff; font-weight:700; }
+      .app { padding:10px; }
+      .topbar { display:grid; grid-template-columns:1.2fr repeat(5,1fr); gap:8px; margin-bottom:10px; }
+      .stat,.pair { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:10px; }
+      .pair .symbol { font-size:18px; font-weight:700; }
+      .pair .price { color:var(--cyan); font-size:22px; font-weight:700; margin-top:4px; }
+      .label { color:var(--muted); font-size:12px; }
+      .value { margin-top:4px; font-size:14px; font-weight:600; }
+      .layout { display:grid; grid-template-columns:1.8fr 1fr 0.95fr; gap:10px; }
+      .panel { background:var(--card); border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+      .panel-title { padding:10px 12px; font-size:13px; color:var(--muted); border-bottom:1px solid var(--line); }
+      .chart-wrap { padding:12px; }
+      #price-chart { width:100%; height:280px; background:linear-gradient(180deg,#0a1829 0%,#0a1524 100%); border:1px solid #173150; border-radius:6px; }
+      table { width:100%; border-collapse:collapse; }
+      th,td { border-bottom:1px solid #16304d; padding:8px 10px; font-size:12px; }
+      th { color:var(--muted); text-align:left; }
+      .buy { color:var(--green); }
+      .sell { color:var(--red); }
+      .order-form { padding:12px; display:grid; gap:8px; }
+      .tabs { display:flex; gap:6px; }
+      .tab { flex:1; text-align:center; padding:8px 0; border-radius:6px; border:1px solid #1b3c57; font-size:12px; }
+      .tab.active { background:#123f3f; color:#86ffdc; border-color:#246c6b; }
+      input { width:100%; background:#0b1728; border:1px solid #23415f; border-radius:6px; color:var(--text); padding:10px; }
+      .btn { padding:10px; border-radius:6px; border:none; background:var(--green); color:#042017; font-weight:700; cursor:pointer; }
+      .btn-export { display:inline-block; margin:10px 12px; color:#8ceaff; text-decoration:none; font-size:12px; }
+      .bottom { margin-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+      .error { color:var(--red); padding:8px 12px; font-size:12px; }
+      @media (max-width:1200px) { .shell{grid-template-columns:1fr;} .sidebar{display:none;} .layout{grid-template-columns:1fr;} .topbar{grid-template-columns:1fr 1fr;} .bottom{grid-template-columns:1fr;} }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="sidebar-title">Pairs</div>
+        <div id="pair-list">
+          {% if payload and payload.coin_pairs %}
+          {% for pair in payload.coin_pairs %}
+          <a class="pair-item {% if payload.selected_symbol == pair.symbol %}active{% endif %}" href="/?symbol={{ pair.symbol }}">{{ pair.label }}</a>
+          {% endfor %}
+          {% endif %}
+        </div>
+      </aside>
+      <div class="app">
+        <div class="topbar">
+          <div class="pair"><div class="symbol" id="pair-symbol">{% if payload %}{{ payload.market_symbol }}{% else %}ETHUSD{% endif %}</div><div class="price" id="price">${% if payload %}{{ payload.selected_price }}{% else %}--{% endif %}</div></div>
+          <div class="stat"><div class="label">24h Volume</div><div class="value" id="volume">$53.1M</div></div>
+          <div class="stat"><div class="label">Open Interest</div><div class="value" id="oi">$2.4B</div></div>
+          <div class="stat"><div class="label">Funding</div><div class="value" id="funding">0.0012%</div></div>
+          <div class="stat"><div class="label">Mark</div><div class="value" id="mark">{% if payload %}${{ payload.selected_price }}{% else %}--{% endif %}</div></div>
+          <div class="stat"><div class="label">Updated</div><div class="value" id="time">{% if payload %}{{ payload.timestamp_utc }}{% else %}--{% endif %}</div></div>
+        </div>
+        {% if error %}<div id="error" class="error">{{ error }}</div>{% else %}<div id="error" class="error" style="display:none"></div>{% endif %}
+        <div class="layout">
+          <div class="panel"><div class="panel-title">Chart (Candlestick)</div><div class="chart-wrap"><div id="price-chart"></div></div></div>
+          <div class="panel">
+            <div class="panel-title">Order Book</div>
+            <table><thead><tr><th>Price</th><th>Size</th><th>Total</th></tr></thead><tbody id="asks-body"></tbody></table>
+            <table><tbody id="bids-body"></tbody></table>
+          </div>
+          <div class="panel">
+            <div class="panel-title">Trade Panel</div>
+            <div class="order-form"><div class="tabs"><div class="tab active">Buy / Long</div><div class="tab">Sell / Short</div></div><input id="trade-price" type="text" value="" readonly /><input id="trade-size" type="text" placeholder="Size (coin)" /><button class="btn" type="button">Enable Trading</button></div>
+            <div class="panel-title">Recent Trades</div>
+            <table><thead><tr><th>Time</th><th>Price</th><th>Size</th><th>Side</th></tr></thead><tbody id="trades-body"></tbody></table>
+          </div>
+        </div>
+        <div class="bottom">
+          <div class="panel"><div class="panel-title">Top Coins</div><table><thead><tr><th>#</th><th>Coin</th><th>Price</th></tr></thead><tbody id="top10-body"></tbody></table></div>
+          <div class="panel"><div class="panel-title"><span id="history-title">ETHUSD</span> History</div><a id="export-csv" class="btn-export" href="/api/history.csv?limit=1000&symbol=ETH">Export CSV</a><table><thead><tr><th>#</th><th>Price</th><th>Time (UTC)</th></tr></thead><tbody id="history-body"></tbody></table></div>
+        </div>
+      </div>
+    </div>
+
+    {% if payload %}{{ payload|json_script:"initial-payload" }}{% endif %}
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <script>
+      let currentSymbol = "ETH";
+      let chart;
+      let candleSeries;
+      const PRICE_DECIMALS = { ETH: 2, SOL: 3, XRP: 5, HYPE: 4, SUI: 4, TAO: 2, ZRO: 4, MON: 4 };
+      const getPriceDecimals = (symbol) => PRICE_DECIMALS[symbol] ?? 4;
+      const formatPrice = (value, symbol = currentSymbol) => Number.isFinite(Number(value)) ? Number(value).toFixed(getPriceDecimals(symbol)) : "--";
+      const formatTimestamp = (value) => { const d = new Date(value); return Number.isNaN(d.getTime()) ? (value || "--") : d.toLocaleString(); };
+      const formatCompact = (value) => { const n = Number(value); if (!Number.isFinite(n)) return "--"; const a = Math.abs(n); if (a >= 1e9) return `${(n / 1e9).toFixed(2)}B`; if (a >= 1e6) return `${(n / 1e6).toFixed(2)}M`; if (a >= 1e3) return `${(n / 1e3).toFixed(2)}K`; return n.toFixed(2); };
+      function ensureChart() {
+        if (chart) return;
+        const container = document.getElementById("price-chart");
+        chart = LightweightCharts.createChart(container, { height: 280, layout: { background: { color: "#0a1524" }, textColor: "#8ea6c2" }, grid: { vertLines: { color: "#132a43" }, horzLines: { color: "#132a43" } }, rightPriceScale: { borderColor: "#1b2f49" }, timeScale: { borderColor: "#1b2f49", timeVisible: true, secondsVisible: false } });
+        const opts = { upColor: "#21d0a5", downColor: "#ff6d7f", borderVisible: false, wickUpColor: "#21d0a5", wickDownColor: "#ff6d7f" };
+        candleSeries = typeof chart.addCandlestickSeries === "function" ? chart.addCandlestickSeries(opts) : chart.addSeries(LightweightCharts.CandlestickSeries, opts);
+        window.addEventListener("resize", () => chart.applyOptions({ width: container.clientWidth }));
+        chart.applyOptions({ width: container.clientWidth });
+      }
+      function toCandleData(history) {
+        if (!history || !history.length) return [];
+        const points = [...history].reverse();
+        const candles = [];
+        for (let i = 0; i < points.length; i += 4) {
+          const bucket = points.slice(i, i + 4);
+          if (!bucket.length) continue;
+          const prices = bucket.map((x) => Number(x.price));
+          candles.push({ time: Math.floor(new Date(bucket[bucket.length - 1].created_at_utc).getTime() / 1000), open: prices[0], high: Math.max(...prices), low: Math.min(...prices), close: prices[prices.length - 1] });
+        }
+        return candles;
+      }
+      function rowsHtml(items, mapFn, emptyColspan = 3, emptyText = "No data") { return !items || !items.length ? `<tr><td colspan="${emptyColspan}">${emptyText}</td></tr>` : items.map(mapFn).join(""); }
+      function renderAll(data) {
+        currentSymbol = data.selected_symbol;
+        document.getElementById("price").textContent = `$${formatPrice(data.selected_price, data.selected_symbol)}`;
+        document.getElementById("mark").textContent = `$${formatPrice(data.mark_price, data.selected_symbol)}`;
+        document.getElementById("volume").textContent = `$${formatCompact(data.day_volume)}`;
+        document.getElementById("oi").textContent = `$${formatCompact(data.open_interest)}`;
+        document.getElementById("funding").textContent = `${(Number(data.funding_rate) * 100).toFixed(4)}%`;
+        document.getElementById("trade-price").value = formatPrice(data.selected_price, data.selected_symbol);
+        document.getElementById("time").textContent = formatTimestamp(data.timestamp_utc);
+        document.getElementById("pair-symbol").textContent = data.market_symbol;
+        document.getElementById("history-title").textContent = data.selected_label;
+        document.getElementById("export-csv").setAttribute("href", `/api/history.csv?limit=1000&symbol=${data.selected_symbol}`);
+        document.getElementById("pair-list").innerHTML = rowsHtml(data.coin_pairs, (pair) => `<a class="pair-item ${pair.symbol === data.selected_symbol ? "active" : ""}" href="/?symbol=${pair.symbol}">${pair.label}</a>`, 1, "");
+        document.getElementById("top10-body").innerHTML = rowsHtml(data.top_10_coins, (coin, idx) => `<tr><td>${idx + 1}</td><td>${coin.label}</td><td>${formatPrice(coin.price, coin.symbol)}</td></tr>`);
+        document.getElementById("history-body").innerHTML = rowsHtml(data.price_history, (item, idx) => `<tr><td>${idx + 1}</td><td>${formatPrice(item.price, data.selected_symbol)}</td><td>${formatTimestamp(item.created_at_utc)}</td></tr>`);
+        document.getElementById("asks-body").innerHTML = rowsHtml(data.order_book.asks, (r) => `<tr><td class="sell">${formatPrice(r.price, data.selected_symbol)}</td><td>${Number(r.size).toFixed(4)}</td><td>${Number(r.total).toFixed(2)}</td></tr>`);
+        document.getElementById("bids-body").innerHTML = rowsHtml(data.order_book.bids, (r) => `<tr><td class="buy">${formatPrice(r.price, data.selected_symbol)}</td><td>${Number(r.size).toFixed(4)}</td><td>${Number(r.total).toFixed(2)}</td></tr>`);
+        document.getElementById("trades-body").innerHTML = rowsHtml(data.recent_trades, (t) => `<tr><td>${t.time}</td><td>${formatPrice(t.price, data.selected_symbol)}</td><td>${Number(t.size).toFixed(4)}</td><td class="${t.side === "Buy" ? "buy" : "sell"}">${t.side}</td></tr>`, 4);
+        ensureChart();
+        let candles = toCandleData(data.price_history);
+        if (!candles.length) candles = [{ time: Math.floor(Date.now() / 1000), open: Number(data.selected_price), high: Number(data.selected_price), low: Number(data.selected_price), close: Number(data.selected_price) }];
+        candleSeries.setData(candles);
+        chart.timeScale().fitContent();
+      }
+      async function refreshPrice() {
+        try {
+          const res = await fetch(`/api/price?symbol=${currentSymbol}`);
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Cannot fetch price");
+          renderAll(data);
+          const err = document.getElementById("error");
+          err.style.display = "none";
+          err.textContent = "";
+        } catch (e) {
+          const err = document.getElementById("error");
+          err.style.display = "block";
+          err.textContent = e.message;
+        }
+      }
+      const initialNode = document.getElementById("initial-payload");
+      if (initialNode) renderAll(JSON.parse(initialNode.textContent));
+      setInterval(refreshPrice, 2000);
+    </script>
+  </body>
+</html>

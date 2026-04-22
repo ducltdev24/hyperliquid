@@ -1,5 +1,4 @@
-flask
+django
 requests
-sqlalchemy
 pymysql
 cryptography
