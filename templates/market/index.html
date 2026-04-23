@@ -93,7 +93,7 @@
 
       .topbar {
         display: grid;
-        grid-template-columns: 1.25fr repeat(5, 1fr);
+        grid-template-columns: 1.25fr repeat(7, 1fr);
         gap: 10px;
         margin-bottom: 10px;
       }
@@ -319,6 +319,8 @@
           <div class="stat"><div class="label">24h Volume</div><div class="value" id="volume">$53.1M</div></div>
           <div class="stat"><div class="label">Open Interest</div><div class="value" id="oi">$2.4B</div></div>
           <div class="stat"><div class="label">Funding</div><div class="value" id="funding">0.0012%</div></div>
+          <div class="stat"><div class="label">RSI (14)</div><div class="value" id="rsi">{% if payload and payload.rsi is not None %}{{ payload.rsi }}{% else %}--{% endif %}</div></div>
+          <div class="stat"><div class="label">MFI (14)</div><div class="value" id="mfi">{% if payload and payload.mfi is not None %}{{ payload.mfi }}{% else %}--{% endif %}</div></div>
           <div class="stat"><div class="label">Mark</div><div class="value" id="mark">{% if payload %}${{ payload.selected_price }}{% else %}--{% endif %}</div></div>
           <div class="stat"><div class="label">Updated</div><div class="value" id="time">{% if payload %}{{ payload.timestamp_utc }}{% else %}--{% endif %}</div></div>
         </div>
@@ -353,6 +355,7 @@
       const PRICE_DECIMALS = { ETH: 2, SOL: 3, XRP: 5, HYPE: 4, SUI: 4, TAO: 2, ZRO: 4, MON: 4 };
       const getPriceDecimals = (symbol) => PRICE_DECIMALS[symbol] ?? 4;
       const formatPrice = (value, symbol = currentSymbol) => Number.isFinite(Number(value)) ? Number(value).toFixed(getPriceDecimals(symbol)) : "--";
+      const formatIndicator = (value) => Number.isFinite(Number(value)) ? Number(value).toFixed(2) : "--";
       const formatTimestamp = (value) => { const d = new Date(value); return Number.isNaN(d.getTime()) ? (value || "--") : d.toLocaleString(); };
       const formatCompact = (value) => { const n = Number(value); if (!Number.isFinite(n)) return "--"; const a = Math.abs(n); if (a >= 1e9) return `${(n / 1e9).toFixed(2)}B`; if (a >= 1e6) return `${(n / 1e6).toFixed(2)}M`; if (a >= 1e3) return `${(n / 1e3).toFixed(2)}K`; return n.toFixed(2); };
       function ensureChart() {
@@ -384,6 +387,8 @@
         document.getElementById("volume").textContent = `$${formatCompact(data.day_volume)}`;
         document.getElementById("oi").textContent = `$${formatCompact(data.open_interest)}`;
         document.getElementById("funding").textContent = `${(Number(data.funding_rate) * 100).toFixed(4)}%`;
+        document.getElementById("rsi").textContent = formatIndicator(data.rsi);
+        document.getElementById("mfi").textContent = formatIndicator(data.mfi);
         document.getElementById("trade-price").value = formatPrice(data.selected_price, data.selected_symbol);
         document.getElementById("time").textContent = formatTimestamp(data.timestamp_utc);
         document.getElementById("pair-symbol").textContent = data.market_symbol;

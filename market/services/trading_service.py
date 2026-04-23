@@ -86,6 +86,64 @@ def get_recent_prices(symbol: str, limit: int) -> list:
     ]
 
 
+def calculate_rsi(prices: list[float], period: int = 14) -> float | None:
+    if len(prices) <= period:
+        return None
+
+    gains = []
+    losses = []
+    for idx in range(1, len(prices)):
+        delta = prices[idx] - prices[idx - 1]
+        gains.append(max(delta, 0.0))
+        losses.append(max(-delta, 0.0))
+
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+
+    for idx in range(period, len(gains)):
+        avg_gain = ((avg_gain * (period - 1)) + gains[idx]) / period
+        avg_loss = ((avg_loss * (period - 1)) + losses[idx]) / period
+
+    if avg_loss == 0:
+        return 100.0
+
+    rs = avg_gain / avg_loss
+    return 100.0 - (100.0 / (1.0 + rs))
+
+
+def calculate_mfi(prices: list[float], day_volume: float, period: int = 14) -> float | None:
+    if len(prices) <= period:
+        return None
+
+    per_tick_volume = (day_volume / len(prices)) if day_volume > 0 else 1.0
+    typical_prices = prices
+    pos_flow = []
+    neg_flow = []
+
+    for idx in range(1, len(typical_prices)):
+        curr_tp = typical_prices[idx]
+        prev_tp = typical_prices[idx - 1]
+        flow = curr_tp * per_tick_volume
+        if curr_tp > prev_tp:
+            pos_flow.append(flow)
+            neg_flow.append(0.0)
+        elif curr_tp < prev_tp:
+            pos_flow.append(0.0)
+            neg_flow.append(flow)
+        else:
+            pos_flow.append(0.0)
+            neg_flow.append(0.0)
+
+    last_pos = sum(pos_flow[-period:])
+    last_neg = sum(neg_flow[-period:])
+
+    if last_neg == 0:
+        return 100.0
+
+    money_ratio = last_pos / last_neg
+    return 100.0 - (100.0 / (1.0 + money_ratio))
+
+
 def build_price_payload(selected_symbol: str) -> dict:
     mids = fetch_all_mids()
     context_map = build_asset_context_map()
@@ -107,9 +165,13 @@ def build_price_payload(selected_symbol: str) -> dict:
     selected_pair = next(pair for pair in allowed_pairs if pair["symbol"] == selected_symbol)
     selected_ctx = context_map.get(selected_symbol, {})
     selected_price = parse_float(mids[selected_symbol])
+    day_volume = parse_float(selected_ctx.get("dayNtlVlm"), 0.0)
 
     save_price(selected_symbol, selected_price)
     price_history = get_recent_prices(selected_symbol, 240)
+    close_prices = [parse_float(item["price"]) for item in reversed(price_history)]
+    rsi = calculate_rsi(close_prices, period=14)
+    mfi = calculate_mfi(close_prices, day_volume=day_volume, period=14)
 
     return {
         "selected_symbol": selected_symbol,
@@ -119,7 +181,9 @@ def build_price_payload(selected_symbol: str) -> dict:
         "mark_price": parse_float(selected_ctx.get("markPx"), selected_price),
         "funding_rate": parse_float(selected_ctx.get("funding"), 0.0),
         "open_interest": parse_float(selected_ctx.get("openInterest"), 0.0),
-        "day_volume": parse_float(selected_ctx.get("dayNtlVlm"), 0.0),
+        "day_volume": day_volume,
+        "rsi": round(rsi, 2) if rsi is not None else None,
+        "mfi": round(mfi, 2) if mfi is not None else None,
         "top_10_coins": allowed_pairs,
         "coin_pairs": allowed_pairs,
         "price_history": price_history[:180],
